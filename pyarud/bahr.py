@@ -52,6 +52,12 @@ from .zihaf import (
 
 
 class Bahr:
+    """
+    Base class for defining poetic meters (Buhur).
+
+    Subclasses define the standard feet (tafeelat), valid Arudh/Dharb combinations,
+    and disallowed variations (Zihaf) for specific positions.
+    """
     tafeelat: tuple[type[Tafeela], ...] = ()
     arod_dharbs_map: dict[type[BaseEllahZehaf], tuple[type[BaseEllahZehaf], ...]] | set[type[BaseEllahZehaf]] = {}
     sub_bahrs: tuple[type["Bahr"], ...] = ()
@@ -78,59 +84,184 @@ class Bahr:
             combinations.append(forms)
         return combinations
 
-    @property
-    def bait_combinations(self):
-        all_combs = []
+    def get_allowed_feet_patterns(self, shatr_index=0):
+        """
+        Returns a list of lists, where index i contains all valid binary strings for foot i.
+        Used for granular analysis to align input to valid feet.
+        """
+        allowed_per_index = []
 
+        # Hashw feet
+        hashw_combs = self.get_shatr_hashw_combinations(shatr_index)
+        for _, forms in enumerate(hashw_combs):
+            allowed_per_index.append([str(f) for f in forms])
+
+        # Last foot (Arudh/Dharb)
+        last_feet = set()
         if self.only_one_shatr:
-            # Just generate one shatr permutations
-            hashw = self.get_shatr_hashw_combinations()
-            arudh_dharbs = []
-            for z_cls in self.arod_dharbs_map:
-                try:
-                    arudh_dharbs.append(z_cls(self.last_tafeela).modified_tafeela)
-                except AssertionError:
-                    continue
-
-            permutations = list(itertools.product(*hashw, arudh_dharbs))
-            # Convert tuples to pattern strings
-            for p in permutations:
-                all_combs.append("".join(str(t) for t in p))
-        else:
-            # Two shatrs
-            for arudh_z_cls, dharb_z_list in self.arod_dharbs_map.items():
-                try:
-                    arudh = arudh_z_cls(self.last_tafeela).modified_tafeela
-                except AssertionError:
-                    continue
-
-                dharbs = []
-                for d_z in dharb_z_list:
+            # Treat endings as Arudh
+            if isinstance(self.arod_dharbs_map, set):
+                for z_cls in self.arod_dharbs_map:
                     try:
-                        dharbs.append(d_z(self.last_tafeela).modified_tafeela)
+                        last_feet.add(str(z_cls(self.last_tafeela).modified_tafeela))
                     except AssertionError:
                         continue
+            else:
+                for z_cls in self.arod_dharbs_map:
+                    try:
+                        last_feet.add(str(z_cls(self.last_tafeela).modified_tafeela))
+                    except AssertionError:
+                        continue
+        else:
+            if shatr_index == 0:  # Sadr -> Arudh
+                for z_cls in self.arod_dharbs_map.keys():
+                    try:
+                        last_feet.add(str(z_cls(self.last_tafeela).modified_tafeela))
+                    except AssertionError:
+                        continue
+            else:  # Ajuz -> Dharb
+                for d_list in self.arod_dharbs_map.values():
+                    for z_cls in d_list:
+                        try:
+                            last_feet.add(str(z_cls(self.last_tafeela).modified_tafeela))
+                        except AssertionError:
+                            continue
 
-                # Generate Sadr
-                sadr_hashw = self.get_shatr_hashw_combinations(0)
-                sadr_perms = list(itertools.product(*sadr_hashw, [arudh]))
+        allowed_per_index.append(list(last_feet))
+        return allowed_per_index
 
-                # Generate Ajuz
-                ajuz_hashw = self.get_shatr_hashw_combinations(1)
-                ajuz_perms = list(itertools.product(*ajuz_hashw, dharbs))
+    @property
+    def detailed_patterns(self):
+        """
+        Returns structured patterns for Sadr and Ajuz separately.
+        """
+        patterns = {
+            "sadr": [],
+            "ajuz": [],
+            "pairs": set() # Set of (sadr_pattern_str, ajuz_pattern_str) for validation
+        }
 
-                # Combine
-                for s in sadr_perms:
-                    s_str = "".join(str(t) for t in s)
-                    for a in ajuz_perms:
-                        a_str = "".join(str(t) for t in a)
-                        all_combs.append(s_str + a_str)
+        if self.only_one_shatr:
+             # Single shatr meters (Mashtoor/Manhook)
+             # We treat them as Sadr only
+             hashw = self.get_shatr_hashw_combinations()
+             
+             # For single shatr, the "Arudh" is the end of the line
+             
+             # Collect all allowed endings from the map
+             # In single shatr, arod_dharbs_map is a set or dict. 
+             # If dict, keys are allowed endings? Or values?
+             # Looking at subclasses: arod_dharbs_map = {Waqf, Kasf} (Set)
+             
+             endings = []
+             if isinstance(self.arod_dharbs_map, set):
+                 for z_cls in self.arod_dharbs_map:
+                     try:
+                         endings.append(z_cls(self.last_tafeela).modified_tafeela)
+                     except AssertionError:
+                         continue
+             else:
+                 # If it's a dict (some Mashtoors might use dict?), iterate keys
+                 for z_cls in self.arod_dharbs_map:
+                     try:
+                         endings.append(z_cls(self.last_tafeela).modified_tafeela)
+                     except AssertionError:
+                         continue
+            
+             permutations = list(itertools.product(*hashw, endings))
+             for p in permutations:
+                 # p is a tuple of Tafeela objects
+                 feet_strs = [str(t) for t in p]
+                 full_str = "".join(feet_strs)
+                 patterns["sadr"].append({
+                     "pattern": full_str,
+                     "feet": feet_strs,
+                     "type": "single_shatr"
+                 })
+                 # Pairs logic doesn't apply or is trivial
+                 patterns["pairs"].add((full_str, ""))
 
+        else:
+            # Two shatrs
+            sadr_hashw = self.get_shatr_hashw_combinations(0)
+            ajuz_hashw = self.get_shatr_hashw_combinations(1)
+
+            for arudh_z_cls, dharb_z_list in self.arod_dharbs_map.items():
+                # 1. Generate Arudh (End of Sadr)
+                try:
+                    arudh_obj = arudh_z_cls(self.last_tafeela).modified_tafeela
+                except AssertionError:
+                    continue
+                
+                arudh_str = str(arudh_obj)
+
+                # 2. Generate Sadr variations for this Arudh
+                sadr_perms = list(itertools.product(*sadr_hashw, [arudh_obj]))
+                
+                for sp in sadr_perms:
+                    feet_strs = [str(t) for t in sp]
+                    full_sadr = "".join(feet_strs)
+                    
+                    patterns["sadr"].append({
+                        "pattern": full_sadr,
+                        "feet": feet_strs,
+                        "arudh_foot": arudh_str,
+                        "arudh_class": arudh_z_cls.__name__
+                    })
+
+                    # 3. Generate compatible Dharbs (End of Ajuz)
+                    # dharb_z_list is tuple of allowed classes for this Arudh
+                    compatible_dharbs = []
+                    for d_z in dharb_z_list:
+                        try:
+                            dharb_obj = d_z(self.last_tafeela).modified_tafeela
+                            compatible_dharbs.append(dharb_obj)
+                        except AssertionError:
+                            continue
+                    
+                    if not compatible_dharbs:
+                        continue
+
+                    # 4. Generate Ajuz variations for these Dharbs
+                    ajuz_perms = list(itertools.product(*ajuz_hashw, compatible_dharbs))
+                    
+                    for ap in ajuz_perms:
+                        feet_strs_a = [str(t) for t in ap]
+                        full_ajuz = "".join(feet_strs_a)
+                        
+                        patterns["ajuz"].append({
+                            "pattern": full_ajuz,
+                            "feet": feet_strs_a,
+                            "dharb_foot": feet_strs_a[-1],
+                            "allowed_arudhs": [arudh_str] # Valid only if Sadr ended with this
+                        })
+                        
+                        # Register valid pair
+                        patterns["pairs"].add((full_sadr, full_ajuz))
+
+        # Deduplicate lists (dicts are not hashable, use careful logic or just return list)
+        # Actually, we generated duplicates if multiple Arudh classes result in same pattern?
+        # It's fine for now. The Processor will handle matching.
+        
         # Add sub-bahrs
         for sub in self.sub_bahrs:
-            all_combs.extend(sub().bait_combinations)
+            sub_p = sub().detailed_patterns
+            patterns["sadr"].extend(sub_p["sadr"])
+            patterns["ajuz"].extend(sub_p["ajuz"])
+            patterns["pairs"].update(sub_p["pairs"])
+            
+        return patterns
 
-        return sorted(list(set(all_combs)), key=len)
+    @property
+    def bait_combinations(self):
+        # Deprecated wrapper for backward compatibility
+        # Returns flattened list of full lines
+        p = self.detailed_patterns
+        if self.only_one_shatr:
+            return sorted(list(set(x["pattern"] for x in p["sadr"])), key=len)
+        
+        # Reconstruct full lines from pairs
+        return sorted([s+a for s,a in p["pairs"]], key=len)
 
 
 # --- Sub-Bahrs Definitions ---

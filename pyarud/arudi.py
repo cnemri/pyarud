@@ -89,17 +89,65 @@ class ArudiConverter:
 
         # Word replacements from CHANGE_LST
         out = []
+        valid_prefixes = ["و", "ف", "ك", "ب", "ل", "وب", "فك", "ول", "فل"]
+        
         for word in bait.split(" "):
             cleaned_word = strip_tashkeel(word)
             found = False
+            
+            # 1. Exact match check
             for key, replacement in self.CHANGE_LST.items():
-                if key in cleaned_word:
-                    # Replace keeping context if possible, but Bohour replaces the whole word
-                    # We verify exact match of skeleton to apply replacement safely
-                    if cleaned_word == key:
-                        out.append(replacement)
-                        found = True
-                        break
+                if cleaned_word == key:
+                    out.append(replacement)
+                    found = True
+                    break
+            
+            # 2. Prefix check if not found
+            if not found:
+                for key, replacement in self.CHANGE_LST.items():
+                    if cleaned_word.endswith(key):
+                        prefix = cleaned_word[:-len(key)]
+                        if prefix in valid_prefixes:
+                            # We found a prefixed match.
+                            # We need to reconstruct the word with the original prefix's diacritics
+                            # This is tricky because 'word' has diacritics intermixed.
+                            # Simple heuristic: Take the original word string up to the match?
+                            # No, diacritics make length differ.
+                            # Better: Just prepend the prefix chars? 
+                            # "وَهَذَا" -> prefix "وَ" ? 
+                            # We know cleaned prefix is "و".
+                            # Let's try to find where the key starts in the original word.
+                            
+                            # Find the index of the key's first char in the original word (last occurrence)
+                            # ... This assumes standard orthography.
+                            
+                            # Simplest robust approach for Arudi:
+                            # Just use the cleaned prefix + replacement?
+                            # "وهذا" -> "و" + "هَاذَا" -> "وهَاذَا"
+                            # But we lose the prefix's original harakat (e.g. "وَ").
+                            # Ideally we want "وَ" + "هَاذَا".
+                            
+                            # Hack: Since prefixes are usually 1-2 chars, we can assume they are at the start.
+                            # But we don't know their length in the original string (due to harakat).
+                            
+                            # Alternative: Use regex to find the suffix in the original word?
+                            # Or just use the predefined "cleaned prefix" + standard haraka?
+                            # "و" -> "وَ" (Fatha usually). "ب" -> "بِ" (Kasra). "ل" -> "لِ" (Kasra).
+                            # "ك" -> "كَ" (Fatha). "ف" -> "فَ" (Fatha).
+                            
+                            prefix_harakat = {
+                                "و": "وَ", "ف": "فَ", "ك": "كَ", "ب": "بِ", "ل": "لِ"
+                            }
+                            
+                            # Construct new word
+                            new_prefix = ""
+                            for p_char in prefix:
+                                new_prefix += prefix_harakat.get(p_char, p_char) # Default to char if no mapping
+                                
+                            out.append(new_prefix + replacement)
+                            found = True
+                            break
+            
             if not found:
                 out.append(word)
 
@@ -211,6 +259,10 @@ class ArudiConverter:
                             # Result should be 010.
                             # Above logic adds 01, then adds 0. Correct.
 
+                elif next_char == "ا":
+                    out_pattern += "10"
+                    plain_chars += char + "ا"
+
                 elif next_char in self.all_chars:
                     # Letter followed by Letter (implies first is Sakin if no haraka in betweeen?)
                     # Or assumes implicit sukun?
@@ -238,6 +290,11 @@ class ArudiConverter:
                             out_pattern += "0"
 
                 i += 2  # Advance past char and its diacritic/follower
+            elif char == "ا":
+                # Alef encountered as 'char' (e.g. after a diacritic consumed the previous letter)
+                out_pattern += "0"
+                plain_chars += char
+                i += 1
             else:
                 i += 1
 
@@ -264,6 +321,17 @@ class ArudiConverter:
         return plain_chars, out_pattern
 
     def prepare_text(self, text):
+        """
+        Converts standard Arabic text into Arudi style and extracts the binary pattern.
+
+        Args:
+            text (str): The input Arabic text (hemistich or line).
+
+        Returns:
+            tuple[str, str]: A tuple containing:
+                - `arudi_style` (str): The phonetic Arudi representation (e.g., "مُسْتَفْعِلُنْ").
+                - `pattern` (str): The binary pattern string (e.g., "1010110").
+        """
         text = text.strip()
         if not text:
             return "", ""

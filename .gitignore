@@ -57,3 +57,4 @@ server.log
 
 # Local configuration
 .python-version
+site/

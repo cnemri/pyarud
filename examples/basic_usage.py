@@ -2,7 +2,7 @@ import os
 import sys
 
 # Ensure we can import pyarud
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.abspath(__file__)) + "/..")
 
 from pyarud.processor import ArudhProcessor
 
@@ -13,89 +13,129 @@ def main():
     print("-" * 60)
 
     examples = [
-        # 1. Mutakarib (Correct)
+        # --- Standard Correct Examples ---
         {
             "sadr": "أَخِي جَاوَزَ الظَّالِمُونَ الْمَدَى",
             "ajuz": "فَحَقَّ الْجِهَادُ وَحَقَّ الْفِدَا",
-            "note": "Mutakarib: Fa'ulun Fa'ulun Fa'ulun Fa'ul",
+            "note": "1. Mutakarib (Correct)",
         },
-        # 2. Tawil
         {
             "sadr": "طَوِيلٌ لَهُ دُونَ الْبُحُورِ فَضَائِلُ",
             "ajuz": "فَعُولُنْ مَفَاعِيلُنْ فَعُولُنْ مَفَاعِلُنْ",
-            "note": "Tawil: Fa'ulun Mafa'ilun Fa'ulun Mafa'ilun",
+            "note": "2. Tawil (Correct)",
         },
-        # 3. Basit
         {
-            "sadr": "إِنَّ الْبَسِيطَ لَدَيْهِ يُبْسَطُ الْأَمَلُ",
-            "ajuz": "مُسْتَفْعِلُنْ فَاعِلُنْ مُسْتَفْعِلُنْ فَعِلُنْ",
-            "note": "Basit: Mustaf'ilun Fa'ilun Mustaf'ilun Fa'ilun",
+            "sadr": "بَحْرٌ سَرِيعٌ مَا لَهُ سَاحِلُ",
+            "ajuz": "مُسْتَفْعِلُنْ مُسْتَفْعِلُنْ فَاعِلُنْ",
+            "note": "3. Saree (Correct)",
         },
-        # 4. Kamil
-        {
-            "sadr": "كَمُلَ الْجَمَالُ مِنَ الْبُحُورِ الْكَامِلُ",
-            "ajuz": "مُتَفَاعِلُنْ مُتَفَاعِلُنْ مُتَفَاعِلُنْ",
-            "note": "Kamil: Muta'fa'ilun Muta'fa'ilun Muta'fa'ilun",
-        },
-        # 5. Wafir
-        {
-            "sadr": "بُحُورُ الشِّعْرِ وَافِرُهَا جَمِيلُ",
-            "ajuz": "مُفَاعَلَتُنْ مُفَاعَلَتُنْ فَعُولُنْ",
-            "note": "Wafir: Mafa'alatun Mafa'alatun Fa'ulun",
-        },
-        # 6. Rajaz
-        {
-            "sadr": "فِي أَبْحُرِ الْأَرْجَازِ بَحْرٌ يَسْهُلُ",
-            "ajuz": "مُسْتَفْعِلُنْ مُسْتَفْعِلُنْ مُسْتَفْعِلُنْ",
-            "note": "Rajaz: Mustaf'ilun Mustaf'ilun Mustaf'ilun",
-        },
-        # 7. Khafif
-        {
-            "sadr": "يَا خَفِيفاً خَفَّتْ بِهِ الْحَرَكَاتُ",
-            "ajuz": "فَاعِلَاتُنْ مُسْتَفْعِ لُنْ فَاعِلَاتُنْ",
-            "note": "Khafif: Fa'ilatun Mustaf'i Lun Fa'ilatun",
-        },
-        # 8. Ramal
-        {
-            "sadr": "رَمَلُ الْأَبْحُرِ يَرْوِيهِ الثِّقَاتُ",
-            "ajuz": "فَاعِلَاتُنْ فَاعِلَاتُنْ فَاعِلَاتُنْ",
-            "note": "Ramal: Fa'ilatun Fa'ilatun Fa'ilatun",
-        },
-        # 9. Mutaqarib (Variation)
-        {
-            "sadr": "عَنِ الْمَرْءِ لَا تَسْأَلْ وَسَلْ عَنْ قَرِينِهِ",
-            "ajuz": "فَكُلُّ قَرِينٍ بِالْمُقَارَنِ يَقْتَدِي",
-            "note": "Mutaqarib (Tarafa bin Al-Abd)",
-        },
-        # 10. Mixed/Broken Example (To test mismatch visualization)
+
+        # --- Broken Examples (Forced Meter) ---
+        
+        # Example 1: Broken Mutakarib (The original broken case)
+        # Broken Ajuz: "Wa hadha kalamun thaqilun jidda"
+        # Analysis: "Jidda" breaks the flow or has extra bits.
         {
             "sadr": "أَخِي جَاوَزَ الظَّالِمُونَ الْمَدَى",
             "ajuz": "وَهَذَا كَلامٌ ثَقِيلٌ جِدًّا",
-            "note": "Broken Mutakarib (Second shatr is heavy/broken)",
+            "note": "4. Broken Mutakarib (Extra bits at end)",
+            "force_meter": "mutakareb"
         },
+
+        # Example 2: Broken Kamil
+        # Sadr is correct Kamil.
+        # Ajuz: "Wa la-kin-na fi-hi kash-run ka-beer" (Intentionally messed up scanning)
+        # "Mustafa'ilun" pattern broken in middle.
+        {
+            "sadr": "كَمُلَ الْجَمَالُ مِنَ الْبُحُورِ الْكَامِلُ",
+            "ajuz": "وَلَكِنَّ فِيهِ كَسْرٌ كَبِيرٌ جِدًّا",
+            "note": "5. Broken Kamil (Rhythm break in Ajuz)",
+            "force_meter": "kamel"
+        },
+
+        # Example 3: Broken Wafir
+        # Sadr: Correct Wafir.
+        # Ajuz: "Mufa'alatun Mufa'alatun" but missing last foot.
+        {
+            "sadr": "بُحُورُ الشِّعْرِ وَافِرُهَا جَمِيلُ",
+            "ajuz": "مُفَاعَلَتُنْ مُفَاعَلَتُنْ", 
+            "note": "6. Broken Wafir (Missing last foot in Ajuz)",
+            "force_meter": "wafer"
+        },
+
+        # Example 4: Broken Rajaz
+        # "Fi abhuril arjazi bahrun yashulu"
+        # Let's add a word that breaks the "Mustaf'ilun" flow.
+        {
+            "sadr": "فِي أَبْحُرِ الْأَرْجَازِ بَحْرٌ لَيْسَ يَسْهُلُ", 
+            "ajuz": "مُسْتَفْعِلُنْ مُسْتَفْعِلُنْ مُسْتَفْعِلُنْ",
+            "note": "7. Broken Rajaz (Added 'laysa' in Sadr breaking flow)",
+            "force_meter": "rajaz"
+        },
+
+        # Example 5: Broken Basit
+        # "Inna al-basita ladayhi yubsatu al-amalu"
+        # Let's truncate the Sadr significantly.
+        {
+            "sadr": "إِنَّ الْبَسِيطَ لَدَيْهِ",
+            "ajuz": "مُسْتَفْعِلُنْ فَاعِلُنْ مُسْتَفْعِلُنْ فَعِلُنْ",
+            "note": "8. Broken Basit (Significantly truncated Sadr)",
+            "force_meter": "baseet"
+        }
     ]
 
-    for i, ex in enumerate(examples, 1):
-        print(f"Example {i}: {ex['note']}")
+    for ex in examples:
+        print(f"Example: {ex['note']}")
         print(f"Sadr: {ex['sadr']}")
         print(f"Ajuz: {ex['ajuz']}")
-
-        verses = [(ex["sadr"], ex["ajuz"])]
-        result = processor.process_poem(verses)
-
-        if "error" in result:
-            print(f"Error: {result['error']}")
+        
+        verses = [(ex['sadr'], ex['ajuz'])]
+        force_meter = ex.get("force_meter")
+        
+        if force_meter:
+            print(f"ℹ️  Forcing Meter: {force_meter}")
         else:
-            print(f"Detected Meter: {result['meter']}")
-            for verse_analysis in result["verses"]:
-                print(f"  Sadr Pattern: {verse_analysis['sadr_text']}")
-                print(
-                    f"       Arudi: {verse_analysis['input_pattern'][: len(verse_analysis['input_pattern']) // 2]}..."
-                )  # Roughly split for display
-                print(f"       Match: {verse_analysis['best_ref_pattern']}")
-                print(f"       Score: {verse_analysis['score']}")
-        print("-" * 60)
+            print("ℹ️  Auto-detecting Meter...")
 
+        result = processor.process_poem(verses, meter_name=force_meter)
+        
+        if "error" in result:
+            print(f"❌ Error: {result['error']}")
+        else:
+            detected = result['meter']
+            print(f"📊 Meter: {detected}")
+            
+            for v in result['verses']:
+                print(f"  Overall Score: {v['score']}")
+                
+                # Function to print analysis nicely
+                def print_shatr(shatr_name, analysis):
+                    print(f"  {shatr_name} Analysis:")
+                    if not analysis:
+                        print("    (None)")
+                        return
+                    for foot in analysis:
+                        status = foot['status']
+                        if status == 'ok':
+                            icon = "✅"
+                        elif status == 'missing':
+                            icon = "❓"
+                        elif status == 'extra_bits':
+                            icon = "⚠️ "
+                        else:
+                            icon = "❌"
+                        
+                        # Formatting pattern display
+                        exp = foot['expected_pattern'] if foot['expected_pattern'] else "None"
+                        act = foot['actual_segment']
+                        
+                        print(f"    {icon} Foot {foot['foot_index']}: Expected {exp:<8} | Got {act:<8} ({status})")
+
+                print_shatr("Sadr", v['sadr_analysis'])
+                if v['ajuz_analysis']:
+                    print_shatr("Ajuz", v['ajuz_analysis'])
+                        
+        print("-" * 60)
 
 if __name__ == "__main__":
     main()
