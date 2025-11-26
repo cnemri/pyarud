@@ -1,0 +1,275 @@
+import re
+
+from pyarabic.araby import strip_tashkeel
+
+
+class ArudiConverter:
+    def __init__(self):
+        self.harakat = ["\u0650", "\u064e", "\u064f"]  # kasra, fatha, damma
+        self.sukun = ["\u0652"]  # sukun
+        self.mostly_saken = ["\u0627", "\u0648", "\u0649", "\u064a"]  # alef, waw, alef maqsurah, ya'a
+        self.tnween_chars = ["\u064c", "\u064d", "\u064b"]  # damm, kasra, fatha tanween
+        self.shadda_chars = ["\u0651"]
+        self.all_chars = list("إةابتثجحخدذرزسشصضطظعغفقكلمنهويىأءئؤ ")
+        self.prem_chars = (
+            self.harakat + self.sukun + self.mostly_saken + self.tnween_chars + self.shadda_chars + self.all_chars
+        )
+
+        # Word replacements for Arudi writing
+        self.CHANGE_LST = {
+            "هذا": "هَاذَا",
+            "هذه": "هَاذِه",
+            "هذان": "هَاذَان",
+            "هذين": "هَاذَين",
+            "ذلك": "ذَالِك",
+            "ذلكما": "ذَالِكُمَا",
+            "ذلكم": "ذَالِكُم",
+            "الله": "اللَّاه",
+            "اللهم": "اللَّاهُمّ",
+            "إله": "إِلَاه",
+            "الإله": "الإِلَاه",
+            "إلهي": "إِلَاهي",
+            "إلهنا": "إِلَاهنا",
+            "إلهكم": "إِلَاهكم",
+            "إلههم": "إِلَاههم",
+            "إلههن": "إِلَاههن",
+            "رحمن": "رَحمَان",
+            "طاوس": "طَاوُوس",
+            "داود": "دَاوُود",
+            "لكنه": "لَاكِنّهُ",
+            "أولئك": "أُلَائِك",
+            "أولئكم": "أُلَائِكُم",
+        }
+
+    def _handle_space(self, plain_chars):
+        if plain_chars[-1] == " ":
+            return plain_chars[:-2]
+        else:
+            return plain_chars[:-1]
+
+    def _remove_extra_harakat(self, text):
+        out = ""
+        i = 0
+        while i < len(text):
+            if i < len(text) - 1:
+                if text[i] in self.harakat and text[i + 1] in self.harakat:
+                    i += 1
+                    continue
+            out += text[i]
+            i += 1
+        return out
+
+    def _process_specials_before(self, bait):
+        # Handle specific starting Alif cases
+        if bait and bait[0] == "ا":
+            # Heuristic: randomly choose or based on context. Bohour used random.
+            # We'll default to Fatha for consistency in deterministic output,
+            # or Hamza with Fatha.
+            bait = "أَ" + bait[1:]
+
+        bait = bait.replace("وا ", "و ")
+        if bait.endswith("وا"):
+            bait = bait[:-1]
+
+        bait = bait.replace("وْا", "و")
+        if bait.endswith("وْا"):
+            bait = bait[:-2] + "و"
+
+        # Common substitutions
+        bait = bait.replace("الله", "اللاه")
+        bait = bait.replace("اللّه", "الله")
+        bait = bait.replace("إلَّا", "إِلّا")
+        bait = bait.replace("نْ ال", "نَ ال")
+        bait = bait.replace("لْ ال", "لِ ال")
+        bait = bait.replace("إلَى", "إِلَى")
+        bait = bait.replace("إذَا", "إِذَا")
+        bait = bait.replace("ك ", "كَ ")
+        bait = bait.replace(" ال ", " الْ ")
+        bait = bait.replace("ْ ال", "ِ ال")
+
+        # Word replacements from CHANGE_LST
+        out = []
+        for word in bait.split(" "):
+            cleaned_word = strip_tashkeel(word)
+            found = False
+            for key, replacement in self.CHANGE_LST.items():
+                if key in cleaned_word:
+                    # Replace keeping context if possible, but Bohour replaces the whole word
+                    # We verify exact match of skeleton to apply replacement safely
+                    if cleaned_word == key:
+                        out.append(replacement)
+                        found = True
+                        break
+            if not found:
+                out.append(word)
+
+        bait = " ".join(out)
+
+        # Ensure second char isn't a bare letter if first is
+        if len(bait) > 1 and bait[1] in self.all_chars:
+            bait = bait[0] + self.harakat[1] + bait[1:]
+
+        # Filter trailing alif after tanween
+        final_chars = []
+        i = 0
+        while i < len(bait):
+            if bait[i] == "ا" and i > 0 and bait[i - 1] in self.tnween_chars:
+                i += 1
+                # skip following harakat if any
+                if i < len(bait) and bait[i] in self.harakat + self.sukun + self.tnween_chars + self.shadda_chars:
+                    i += 1
+                continue
+            final_chars.append(bait[i])
+            i += 1
+
+        return "".join(final_chars)
+
+    def _process_specials_after(self, bait):
+        bait = bait.replace("ةن", "تن")
+        return bait
+
+    def _extract_pattern(self, text):
+        """
+        Core logic to extract binary pattern and arudi text.
+        Based on Bohour's extract_tf3eelav3.
+        """
+        text = self._remove_extra_harakat(text)
+        chars = list(text.replace("\u0622", "ءَا").strip())  # Replace Madda
+        chars = [c for c in chars if c in self.prem_chars]
+        chars = list(re.sub(" +", " ", "".join(chars).strip()))
+
+        out_pattern = ""
+        plain_chars = ""
+
+        i = 0
+        while i < len(chars) - 1:
+            char = chars[i]
+
+            if char in self.all_chars:
+                if char == " ":
+                    plain_chars += char
+                    i += 1
+                    continue
+
+                # Lookahead
+                next_char = chars[i + 1]
+                if next_char == " " and i + 2 < len(chars):
+                    next_char = chars[i + 2]
+
+                next_next_char = None
+                if i < len(chars) - 2:
+                    next_next_char = chars[i + 2]
+
+                prev_digit = out_pattern[-1] if len(out_pattern) > 0 else ""
+
+                # Logic
+                if next_char in self.harakat:
+                    out_pattern += "1"
+                    plain_chars += char
+
+                elif next_char in self.sukun:
+                    if prev_digit != "0":
+                        out_pattern += "0"
+                        plain_chars += char
+                    elif (i + 1) == len(chars) - 1:
+                        # End of line sukun handling
+                        out_pattern = out_pattern[:-1] + "10"
+                        plain_chars += char
+                    else:
+                        plain_chars = self._handle_space(plain_chars) + char
+
+                elif next_char in self.tnween_chars:
+                    if char != "ا":
+                        plain_chars += char
+                    plain_chars += "ن"
+                    out_pattern += "10"
+
+                elif next_char in self.shadda_chars:
+                    if prev_digit != "0":
+                        plain_chars += char + char
+                        out_pattern += "01"
+                    else:
+                        plain_chars = self._handle_space(plain_chars) + char + char
+                        out_pattern += "1"
+
+                    # Check what follows Shadda
+                    if i + 2 < len(chars):
+                        if chars[i + 2] in self.harakat:
+                            i += 1  # Skip harakat processing next loop (handled here implicitly?)
+                            # Actually Bohour logic just increments i to skip processing the harakah as separate char?
+                            # But we added '1' for the second letter of shadda.
+                            pass
+                        elif chars[i + 2] in self.tnween_chars:
+                            i += 1
+                            plain_chars += "ن"
+                            out_pattern += "0"  # Shadda(1) + Tanween(0) -> 10. Wait. Shadda is 01.
+                            # If Shadda + Tanween:
+                            # Letter + Shadda + Tanween
+                            # 1. Letter Sakin (0)
+                            # 2. Letter Mutaharrik (1)
+                            # 3. Tanween (0)
+                            # Result should be 010.
+                            # Above logic adds 01, then adds 0. Correct.
+
+                elif next_char in self.all_chars:
+                    # Letter followed by Letter (implies first is Sakin if no haraka in betweeen?)
+                    # Or assumes implicit sukun?
+                    if prev_digit != "0":
+                        out_pattern += "0"
+                        plain_chars += char
+                    elif prev_digit == "0" and i + 1 < len(chars) and chars[i + 1] == " ":
+                        # Special case from Bohour
+                        out_pattern += "1"
+                        plain_chars += char
+                    else:
+                        plain_chars = self._handle_space(plain_chars) + char
+                    i -= 1  # Backtrack? This logic in Bohour is tricky.
+                    # If we assumed it was a letter but it's followed by a letter, we treat current as sakin.
+                    # The i -= 1 might be to re-process? No, i += 2 at end.
+
+                # Ha' al-Gha'ib (He) handling
+                if next_next_char == " ":
+                    if char == "ه":
+                        if next_char == self.harakat[0]:  # Kasra
+                            plain_chars += "ي"
+                            out_pattern += "0"
+                        if next_char == self.harakat[2]:  # Damma
+                            plain_chars += "و"
+                            out_pattern += "0"
+
+                i += 2  # Advance past char and its diacritic/follower
+            else:
+                i += 1
+
+        # Finalize
+        if out_pattern and out_pattern[-1] != "0":
+            out_pattern += "0"  # Always end with sukun (Qafiyah)
+
+        # Ashba' (Saturation) of last letter
+        if chars:
+            last_char = chars[-1]
+            if last_char == self.harakat[0]:  # Kasra
+                plain_chars += "ي"
+            elif last_char == self.tnween_chars[1]:  # Kasr Tanween
+                plain_chars = plain_chars[:-1] + "ي"
+            elif last_char == self.harakat[1]:  # Fatha
+                plain_chars += "ا"
+            elif last_char == self.harakat[2]:  # Damma
+                plain_chars += "و"
+            elif last_char == self.tnween_chars[0]:  # Damm Tanween
+                plain_chars = plain_chars[:-1] + "و"
+            elif last_char in "ىاوي" and len(chars) > 1 and chars[-2] not in self.tnween_chars:
+                plain_chars += last_char
+
+        return plain_chars, out_pattern
+
+    def prepare_text(self, text):
+        text = text.strip()
+        if not text:
+            return "", ""
+
+        preprocessed = self._process_specials_before(text)
+        arudi_style, pattern = self._extract_pattern(preprocessed)
+        arudi_style = self._process_specials_after(arudi_style)
+
+        return arudi_style, pattern
