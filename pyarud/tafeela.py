@@ -1,3 +1,5 @@
+from pyarabic.araby import SUKUN
+
 from .zihaf import (
     Akal,
     Asab,
@@ -17,7 +19,7 @@ from .zihaf import (
     Ziyada,
 )
 
-SUKUN_CHAR = "ْ"
+SUKUN_CHAR = SUKUN
 
 
 class Tafeela:

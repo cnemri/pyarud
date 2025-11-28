@@ -1,5 +1,7 @@
 from copy import deepcopy
 
+from pyarabic.araby import ALEF, NOON, TEH
+
 
 class BaseEllahZehaf:
     """Base class for all Zehaf (changes) and Ellah (causes/defects)."""
@@ -183,7 +185,7 @@ class Tatheel(BaseEllahZehaf):
 
     def modify_tafeela(self):
         assert self.tafeela.pattern[-3:] == [1, 1, 0]
-        self.tafeela.add_to_pattern(len(self.tafeela.pattern) - 1, 0, "ا")
+        self.tafeela.add_to_pattern(len(self.tafeela.pattern) - 1, 0, ALEF)
 
 
 class Tasbeegh(BaseEllahZehaf):
@@ -191,7 +193,7 @@ class Tasbeegh(BaseEllahZehaf):
 
     def modify_tafeela(self):
         assert self.tafeela.pattern[-2:] == [1, 0]
-        self.tafeela.add_to_pattern(len(self.tafeela.pattern) - 1, 0, "ا")
+        self.tafeela.add_to_pattern(len(self.tafeela.pattern) - 1, 0, ALEF)
 
 
 class TatheelAndEdmaar(BaseEllahZehaf):
@@ -205,8 +207,8 @@ class Tarfeel(BaseEllahZehaf):
 
     def modify_tafeela(self):
         # Add 'tun' (10)
-        self.tafeela.add_to_pattern(len(self.tafeela.pattern), 1, "ت")
-        self.tafeela.add_to_pattern(len(self.tafeela.pattern), 0, "ن")
+        self.tafeela.add_to_pattern(len(self.tafeela.pattern), 1, TEH)
+        self.tafeela.add_to_pattern(len(self.tafeela.pattern), 0, NOON)
 
 
 class TarfeelAndEdmaar(BaseEllahZehaf):

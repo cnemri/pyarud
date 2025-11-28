@@ -1,16 +1,32 @@
 import re
 
-from pyarabic.araby import strip_tashkeel
+from pyarabic.araby import (
+    ALEF,
+    ALEF_MADDA,
+    ALEF_MAKSURA,
+    DAMMA,
+    DAMMATAN,
+    FATHA,
+    FATHATAN,
+    KASRA,
+    KASRATAN,
+    LETTERS,
+    SHADDA,
+    SUKUN,
+    WAW,
+    YEH,
+    strip_tashkeel,
+)
 
 
 class ArudiConverter:
     def __init__(self):
-        self.harakat = ["\u0650", "\u064e", "\u064f"]  # kasra, fatha, damma
-        self.sukun = ["\u0652"]  # sukun
-        self.mostly_saken = ["\u0627", "\u0648", "\u0649", "\u064a"]  # alef, waw, alef maqsurah, ya'a
-        self.tnween_chars = ["\u064c", "\u064d", "\u064b"]  # damm, kasra, fatha tanween
-        self.shadda_chars = ["\u0651"]
-        self.all_chars = list("إةابتثجحخدذرزسشصضطظعغفقكلمنهويىأءئؤ ")
+        self.harakat = [KASRA, FATHA, DAMMA]  # kasra, fatha, damma
+        self.sukun = [SUKUN]  # sukun
+        self.mostly_saken = [ALEF, WAW, ALEF_MAKSURA, YEH]  # alef, waw, alef maqsurah, ya'a
+        self.tnween_chars = [DAMMATAN, KASRATAN, FATHATAN]  # damm, kasra, fatha tanween
+        self.shadda_chars = [SHADDA]
+        self.all_chars = list(LETTERS + " ")
         self.prem_chars = (
             self.harakat + self.sukun + self.mostly_saken + self.tnween_chars + self.shadda_chars + self.all_chars
         )
@@ -21,9 +37,12 @@ class ArudiConverter:
             "هذه": "هَاذِه",
             "هذان": "هَاذَان",
             "هذين": "هَاذَين",
+            "هؤلاء": "هَاؤُلَاء",
             "ذلك": "ذَالِك",
             "ذلكما": "ذَالِكُمَا",
             "ذلكم": "ذَالِكُم",
+            "أولئك": "أُلَائِك",
+            "أولئكم": "أُلَائِكُم",
             "الله": "اللَّاه",
             "اللهم": "اللَّاهُمّ",
             "إله": "إِلَاه",
@@ -34,14 +53,30 @@ class ArudiConverter:
             "إلههم": "إِلَاههم",
             "إلههن": "إِلَاههن",
             "رحمن": "رَحمَان",
+            "الرحمن": "الرَّحمَان",
             "طاوس": "طَاوُوس",
             "داود": "دَاوُود",
+            "لكن": "لَاكِن",
+            "لكنّ": "لَاكِنّ",
             "لكنه": "لَاكِنّهُ",
-            "أولئك": "أُلَائِك",
-            "أولئكم": "أُلَائِكُم",
+            "طه": "طَاهَا",
+            "يس": "يَاسِين",
         }
 
+    def register_custom_spelling(self, word, replacement):
+        """
+        Register a custom Arudi spelling for a specific word.
+
+        Args:
+            word (str): The word (without diacritics) to replace (e.g., 'لكن').
+            replacement (str): The phonetic Arudi spelling (e.g., 'لَاكِن').
+        """
+        self.CHANGE_LST[word] = replacement
+
     def _handle_space(self, plain_chars):
+        if not plain_chars:
+            return plain_chars
+
         if plain_chars[-1] == " ":
             return plain_chars[:-2]
         else:
@@ -92,7 +127,7 @@ class ArudiConverter:
         # Shorten long vowels before Al (Hamzat Wasl + Lam Qamariya/Shamsiya)
         # This handles "Iltiqa al-Sakinayn" (meeting of two sakins) by dropping the first long vowel
         # e.g., 'إِلَى الْ' -> 'إِلَ الْ', 'فِي الْ' -> 'فِ الْ', 'ذَا الْ' -> 'ذَ الْ'
-        bait = re.sub(r"([^\s])([اىي])\s+ال", r"\1 ال", bait)
+        bait = re.sub(r"([^\s])([اىيو])\s+ال", r"\1 ال", bait)
 
         # Word replacements from CHANGE_LST
         out = []
@@ -189,7 +224,7 @@ class ArudiConverter:
         Based on Bohour's extract_tf3eelav3.
         """
         text = self._remove_extra_harakat(text)
-        chars = list(text.replace("\u0622", "ءَا").strip())  # Replace Madda
+        chars = list(text.replace(ALEF_MADDA, "ءَا").strip())  # Replace Madda
         chars = [c for c in chars if c in self.prem_chars]
         chars = list(re.sub(" +", " ", "".join(chars).strip()))
 
@@ -322,7 +357,7 @@ class ArudiConverter:
                 plain_chars += "و"
             elif last_char == self.tnween_chars[0]:  # Damm Tanween
                 plain_chars = plain_chars[:-1] + "و"
-            elif last_char in "ىاوي" and len(chars) > 1 and chars[-2] not in self.tnween_chars:
+            elif last_char in self.mostly_saken and len(chars) > 1 and chars[-2] not in self.tnween_chars:
                 plain_chars += last_char
 
         return plain_chars, out_pattern
