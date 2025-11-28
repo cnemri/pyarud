@@ -1,5 +1,5 @@
 site_name: PyArud (بيعروض)
-site_description: A Python library for Arabic prosody (Arud) analysis.
+site_description: The comprehensive Python library for Arabic prosody (Arud) analysis, featuring deep theoretical documentation and robust processing.
 site_url: https://cnemri.github.io/pyarud/
 repo_url: https://github.com/cnemri/pyarud
 repo_name: pyarud
@@ -9,9 +9,10 @@ theme:
   features:
     - navigation.tabs
     - navigation.sections
+    - navigation.expand
     - content.code.copy
+    - toc.follow
   palette:
-    # Palette toggle for light mode
     - media: "(prefers-color-scheme: light)"
       scheme: default
       primary: teal
@@ -19,8 +20,6 @@ theme:
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
-
-    # Palette toggle for dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: teal
@@ -41,11 +40,17 @@ plugins:
             show_source: true
 
 nav:
-  - Guide:
-      - Introduction: index.md
+  - Home: index.md
+  - Getting Started:
       - Installation: installation.md
       - Quick Start: quickstart.md
-      - Core Concepts: concepts.md
+  - Arudh Theory (علم العروض):
+      - Introduction & History: theory/introduction.md
+      - The Foundation (Components): theory/components.md
+      - Arudi Writing (الكتابة العروضية): theory/writing.md
+  - The Meters (البحور): meters.md
+  - Modifications (الزحافات والعلل): zihafs.md
+  - Technical Architecture: architecture.md
   - Tutorials:
       - First Analysis: tutorials/first_analysis.md
       - Debugging Poetry: tutorials/debugging.md

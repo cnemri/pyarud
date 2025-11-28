@@ -1,25 +1,37 @@
 # Welcome to PyArud (بيعروض)
 
-**PyArud** is a robust Python library for Arabic prosody (Arud) analysis. It detects poetic meters, analyzes verses foot-by-foot, and identifies variations (Zihaf) and defects (Ellah).
+**PyArud** is the definitive Python library for Arabic prosody (Arud) analysis. It bridges the gap between classical prosodic theory and modern computational linguistics.
+
+Whether you are a developer building a poetry app, a researcher analyzing classical corpuses, or a student of *Ilm al-Arudh*, PyArud provides the tools you need.
+
+<div class="grid cards" markdown>
+
+-   :material-book-open-variant: **Deep Theory**
+    Learn the science of Arudh, from Al-Khalil's circles to the anatomy of a Watad.
+    [:arrow_right: Read the Theory](theory/introduction.md)
+
+-   :material-scale-balance: **The 16 Meters**
+    A comprehensive reference for every Bahr, its keys, variations, and allowed modifications.
+    [:arrow_right: Explore Meters](meters.md)
+
+-   :material-code-json: **Robust Analysis**
+    Detect meters, analyze feet, and identify specific defects (Zihaf & Ellah) with precision.
+    [:arrow_right: Quick Start](quickstart.md)
+
+-   :material-hammer-wrench: **Extensible Architecture**
+    Built on a modular pipeline that allows you to register custom spellings and extend definitions.
+    [:arrow_right: Architecture](architecture.md)
+
+</div>
 
 ## Why PyArud?
 
-Arabic prosody is complex. A single meter can have dozens of valid variations (Zihaf) and obligatory endings (Ellah). Most tools give a simple "Pass/Fail" or struggle with common variations.
+Arabic prosody is not just about counting syllables. It is a complex system of permissibility (`Jawaz`) and necessity (`Wujub`).
 
-**PyArud is designed for precision:**
-- **It doesn't just guess:** It uses a deterministic, exhaustive map of valid meter variations.
-- **It explains itself:** Instead of just saying "Invalid", it tells you *exactly* which foot broke the rhythm.
-- **It handles the edge cases:** From *Idmar* in Kamil to *Batr* in Mutakarib, the library supports deep prosodic rules.
-
-## Features
-
-- **Smart Meter Detection**: Automatically identifies the 16 Khalil meters (Buhur), differentiating between similar rhythms (e.g., Rajaz vs. Kamil).
-- **Granular Analysis**: Breaks down every verse into its component feet (Tafila), validating each one individually.
-- **Defect Diagnosis**: Explicitly flags:
-    - `broken`: Text that violates the meter.
-    - `missing`: Feet that are absent from the line.
-    - `extra_bits`: Syllables that overflow the meter.
-- **Arudi Conversion**: Built-in text processing to handle Arabic diacritics, silent letters (e.g., Solar Lam), and phonetic pronunciation.
+**PyArud is different because:**
+1.  **It knows the rules**: It doesn't just regex match. It understands that a `Mustaf'ilun` in Rajaz allows different changes than a `Mustaf'ilun` in Basit.
+2.  **It handles the details**: From `Iltiqa al-Sakinayn` (meeting of stills) to `Ashba'` (saturation), the linguistic engine handles the nuances of Arabic phonetics.
+3.  **It speaks the language**: The documentation and code use the correct Arabic terminology (Sabab, Watad, Arudh, Dharb) mapped to English, making it a learning resource in itself.
 
 ## Installation
 
@@ -27,14 +39,17 @@ Arabic prosody is complex. A single meter can have dozens of valid variations (Z
 pip install pyarud
 ```
 
-## Quick Start
+## Example Analysis
 
 ```python
 from pyarud.processor import ArudhProcessor
 
-processor = ArudhProcessor()
-verse = [("أَخِي جَاوَزَ الظَّالِمُونَ الْمَدَى", "فَحَقَّ الْجِهَادُ وَحَقَّ الْفِدَا")]
+# A verse from Al-Mutanabbi
+verse = [("أَلا لا أُري الأحْداثَ حَمْدًا وَلا ذَمّا", "فَما بَطْشُها جَهْلًا وَلا كَفُّها حِلْما")]
 
+processor = ArudhProcessor()
 result = processor.process_poem(verse)
-print(f"Detected Meter: {result['meter']}")
+
+print(f"Meter: {result['meter']}") # 'taweel'
+print(f"Score: {result['verses'][0]['score']}")
 ```
