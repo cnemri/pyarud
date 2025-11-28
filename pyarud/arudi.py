@@ -224,7 +224,7 @@ class ArudiConverter:
         bait = bait.replace("ةن", "تن")
         return bait
 
-    def _extract_pattern(self, text):
+    def _extract_pattern(self, text, saturate=True):
         """
         Core logic to extract binary pattern and arudi text.
         Based on Bohour's extract_tf3eelav3.
@@ -347,11 +347,11 @@ class ArudiConverter:
                 i += 1
 
         # Finalize
-        if out_pattern and out_pattern[-1] != "0":
+        if saturate and out_pattern and out_pattern[-1] != "0":
             out_pattern += "0"  # Always end with sukun (Qafiyah)
 
         # Ashba' (Saturation) of last letter
-        if chars:
+        if saturate and chars:
             last_char = chars[-1]
             if last_char == self.harakat[0]:  # Kasra
                 plain_chars += "ي"
@@ -368,12 +368,13 @@ class ArudiConverter:
 
         return plain_chars, out_pattern
 
-    def prepare_text(self, text):
+    def prepare_text(self, text, saturate=True):
         """
         Converts standard Arabic text into Arudi style and extracts the binary pattern.
 
         Args:
             text (str): The input Arabic text (hemistich or line).
+            saturate (bool): Whether to saturate the last letter (Ishba'). Defaults to True.
 
         Returns:
             tuple[str, str]: A tuple containing:
@@ -386,7 +387,7 @@ class ArudiConverter:
 
         text = self._normalize_shadda(text)
         preprocessed = self._process_specials_before(text)
-        arudi_style, pattern = self._extract_pattern(preprocessed)
+        arudi_style, pattern = self._extract_pattern(preprocessed, saturate=saturate)
         arudi_style = self._process_specials_after(arudi_style)
 
         return arudi_style, pattern

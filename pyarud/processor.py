@@ -60,30 +60,48 @@ class ArudhProcessor:
         # 1. Detect Meter for each verse (if not forced)
         for i, (sadr, ajuz) in enumerate(verses):
             # Convert text to pattern
-            sadr_arudi, sadr_pattern = self.converter.prepare_text(sadr)
-            ajuz_arudi, ajuz_pattern = self.converter.prepare_text(ajuz)
+            # Generate candidates for Sadr: Saturated (Standard) and Unsaturated (Mudawwar/Fragment)
+            sadr_res_sat = self.converter.prepare_text(sadr, saturate=True)
+            sadr_res_unsat = self.converter.prepare_text(sadr, saturate=False)
+            
+            # Ajuz is always saturated (end of verse)
+            ajuz_arudi, ajuz_pattern = self.converter.prepare_text(ajuz, saturate=True)
             
             # Handle single shatr input if needed (future proofing)
             if not ajuz:
                 ajuz_pattern = ""
 
             match_info = None
+            
+            # Collect candidates: [(arudi_text, pattern), ...]
+            # If pattern is same, don't duplicate
+            sadr_candidates = [sadr_res_sat]
+            if sadr_res_unsat[1] != sadr_res_sat[1]:
+                sadr_candidates.append(sadr_res_unsat)
+
             if not meter_name:
                 # Auto-detect
-                candidates = self._find_best_meter(sadr_pattern, ajuz_pattern)
+                candidates = self._find_best_meter(sadr_candidates, ajuz_pattern)
                 if candidates:
                     best_match = candidates[0]
                     detected_counts[best_match["meter"]] += 1
                     match_info = best_match
             else:
-                # Forced meter - no detection step needed here, 
-                # but we might want to store a dummy match object or just skip to analysis
+                # Forced meter
                 pass
+            
+            # Determine which Sadr candidate won
+            chosen_sadr = sadr_candidates[0] # Default
+            if match_info and "sadr_input_pattern" in match_info:
+                 for cand in sadr_candidates:
+                     if cand[1] == match_info["sadr_input_pattern"]:
+                         chosen_sadr = cand
+                         break
             
             temp_results.append(
                 {
                     "index": i,
-                    "sadr": {"text": sadr, "pattern": sadr_pattern, "arudi": sadr_arudi},
+                    "sadr": {"text": sadr, "pattern": chosen_sadr[1], "arudi": chosen_sadr[0]},
                     "ajuz": {"text": ajuz, "pattern": ajuz_pattern, "arudi": ajuz_arudi},
                     "match": match_info,
                 }
@@ -104,7 +122,7 @@ class ArudhProcessor:
 
         return {"meter": global_meter, "verses": final_analysis}
 
-    def _find_best_meter(self, sadr_pattern, ajuz_pattern):
+    def _find_best_meter(self, sadr_candidates, ajuz_pattern):
         METER_PRIORITY = {
             "rajaz": 20,
             "kamel": 10,
@@ -121,8 +139,18 @@ class ArudhProcessor:
         candidates = []
 
         for name, patterns in self.precomputed_patterns.items():
-            # 1. Score Sadr
-            best_sadr = self._find_best_component_match(sadr_pattern, patterns["sadr"])
+            # 1. Score Sadr candidates and pick best for this meter
+            best_sadr = None
+            best_sadr_score = -1
+            best_sadr_input = ""
+            
+            for cand in sadr_candidates:
+                cand_pat = cand[1]
+                match = self._find_best_component_match(cand_pat, patterns["sadr"])
+                if match["score"] > best_sadr_score:
+                    best_sadr_score = match["score"]
+                    best_sadr = match
+                    best_sadr_input = cand_pat
             
             # 2. Score Ajuz (if exists)
             best_ajuz = None
@@ -130,19 +158,17 @@ class ArudhProcessor:
                 best_ajuz = self._find_best_component_match(ajuz_pattern, patterns["ajuz"])
             
             # 3. Calculate Combined Score
-            # If single shatr meter, ajuz score is irrelevant (or 0)
-            s_score = best_sadr["score"]
+            s_score = best_sadr_score
             a_score = best_ajuz["score"] if best_ajuz else 0
             
             # Compatibility Check
             is_valid_pair = False
-            if best_sadr["ref"] and (not ajuz_pattern or best_ajuz["ref"]):
+            if best_sadr and best_sadr["ref"] and (not ajuz_pattern or best_ajuz["ref"]):
                 s_pat = best_sadr["ref"]["pattern"]
                 a_pat = best_ajuz["ref"]["pattern"] if best_ajuz else ""
                 if (s_pat, a_pat) in patterns["pairs"]:
                     is_valid_pair = True
             
-            # Weighted score? Or Average?
             if ajuz_pattern:
                 total_score = (s_score + a_score) / 2
             else:
@@ -153,11 +179,11 @@ class ArudhProcessor:
                 "score": total_score,
                 "sadr_match": best_sadr,
                 "ajuz_match": best_ajuz,
-                "valid_pair": is_valid_pair
+                "valid_pair": is_valid_pair,
+                "sadr_input_pattern": best_sadr_input
             })
 
         # Sort candidates
-        # Priority: Score -> Validity -> Priority Map
         candidates.sort(key=lambda x: (
             round(x["score"], 3),
             x["valid_pair"],
