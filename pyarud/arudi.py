@@ -73,6 +73,12 @@ class ArudiConverter:
         """
         self.CHANGE_LST[word] = replacement
 
+    def _normalize_shadda(self, text):
+        # Ensure Shadda comes before Harakat/Tanween
+        harakat_all = "".join(self.harakat + self.tnween_chars)
+        shadda = "".join(self.shadda_chars)
+        return re.sub(f"([{harakat_all}])([{shadda}])", r"\2\1", text)
+
     def _handle_space(self, plain_chars):
         if not plain_chars:
             return plain_chars
@@ -378,6 +384,7 @@ class ArudiConverter:
         if not text:
             return "", ""
 
+        text = self._normalize_shadda(text)
         preprocessed = self._process_specials_before(text)
         arudi_style, pattern = self._extract_pattern(preprocessed)
         arudi_style = self._process_specials_after(arudi_style)
