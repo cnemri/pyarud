@@ -139,8 +139,11 @@ class ArudiConverter:
         1. Drop Long Vowel + Space + Alif Wasl (e.g. "Idhā Ishtadda" -> "Idhshtadda").
         2. Drop Space + Alif Wasl (e.g. "Bika Al-" -> "Bikal-").
         """
-        # Pattern: Letter + (Long Vowel) + Space + Alif -> Letter
-        text = re.sub(r"([^\s])([اىيو])\s+ا", r"\1", text)
+        # Pattern: Letter + (Optional Diacritic) + (Long Vowel) + Space + Alif -> Letter + Diacritic
+        # The original regex was flawed because it did not capture the diacritic.
+        # This version captures the letter and its optional diacritic, preserving it.
+        # Using S* to handle multiple diacritics (e.g., shadda + fatha).
+        text = re.sub(r"([^\s]\S*)([اىيو])\s+ا", r"\1", text)
         
         # Pattern: Space + Alif (Wasl) -> Drop both
         # Matches any word starting with bare Alif preceded by space.
