@@ -240,15 +240,21 @@ class ArudiConverter:
         i = 0
         while i < len(chars) - 1:
             char = chars[i]
+            next_char = chars[i + 1]
 
             if char in self.all_chars:
                 if char == " ":
+                    # Hamzat Wasl handling: Drop ' ' and 'ا' if they appear together
+                    # This connects the previous word to the next word (e.g. 'ti Al' -> 'til')
+                    if next_char == "ا":
+                        i += 2
+                        continue
+
                     plain_chars += char
                     i += 1
                     continue
 
                 # Lookahead
-                next_char = chars[i + 1]
                 if next_char == " " and i + 2 < len(chars):
                     next_char = chars[i + 2]
 
@@ -307,9 +313,9 @@ class ArudiConverter:
                             # Result should be 010.
                             # Above logic adds 01, then adds 0. Correct.
 
-                elif next_char == "ا":
+                elif next_char in [ALEF, ALEF_MAKSURA]:
                     out_pattern += "10"
-                    plain_chars += char + "ا"
+                    plain_chars += char + next_char
 
                 elif next_char in self.all_chars:
                     # Letter followed by Letter (implies first is Sakin if no haraka in betweeen?)
