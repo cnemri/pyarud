@@ -22,13 +22,14 @@ def format_verse_report(verse: VerseAnalysis) -> str:
     lines.append(f"• درجة التوافق: {verse.score * 100:.1f}% | الحالة: {status_str}")
 
     # Sadr breakdown
-    lines.append("\n  [تقطيع الصدر]")
-    for foot in verse.sadr.feet:
-        status_sym = "✓" if foot.status == "ok" else "✗"
-        lines.append(
-            f"    {status_sym} التفعيلة {foot.foot_index + 1}: {foot.actual_tafeela or foot.base_tafeela} "
-            f"({foot.actual_segment}) - {foot.zihaf_name_ar}"
-        )
+    if verse.sadr:
+        lines.append("\n  [تقطيع الصدر]")
+        for foot in verse.sadr.feet:
+            status_sym = "✓" if foot.status == "ok" else "✗"
+            lines.append(
+                f"    {status_sym} التفعيلة {foot.foot_index + 1}: {foot.actual_tafeela or foot.base_tafeela} "
+                f"({foot.actual_segment}) - {foot.zihaf_name_ar}"
+            )
 
     # Ajuz breakdown
     if verse.ajuz:

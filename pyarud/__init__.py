@@ -132,7 +132,10 @@ def analyze_poem(verses: list[tuple[str, str]] | list[str], forced_meter: str | 
     return _get_processor().analyze_poem(verses, meter_name=forced_meter)
 
 
-def scan(verse_or_poem: str | list[tuple[str, str]] | list[str], forced_meter: str | None = None) -> VerseAnalysis | PoemAnalysis:
+def scan(
+    verse_or_poem: str | list[tuple[str, str]] | list[str],
+    forced_meter: str | None = None,
+) -> VerseAnalysis | PoemAnalysis:
     """
     Ergonomic scansion function accepting either a single verse string (e.g. 'Sadr ... Ajuz' or 'Sadr * Ajuz')
     or a list of verses.

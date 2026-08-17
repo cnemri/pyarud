@@ -5,6 +5,7 @@ Zero AI-generated poems — all authentic diacritized poetry.
 """
 
 import pytest
+
 from pyarud.processor import ArudhProcessor
 
 processor = ArudhProcessor()

@@ -14,7 +14,6 @@ from functools import lru_cache
 from typing import Any
 
 from .core.phonetics import ArudiConverter
-from .exceptions import InvalidVerseError, TashkeelError
 from .meters.bahr import get_all_meters
 from .meters.engine import get_deterministic_engine
 from .models.analysis import (
@@ -215,7 +214,7 @@ class ArudhProcessor:
     def analyze_verse(
         self,
         sadr_text: str,
-        ajuz_text: str = "",
+        ajuz_text: str | None = None,
         forced_meter: str | None = None,
         verse_index: int = 0,
     ) -> VerseAnalysis:
@@ -231,6 +230,7 @@ class ArudhProcessor:
         Returns:
             VerseAnalysis: Strongly typed dataclass containing the complete prosodic breakdown.
         """
+        ajuz_text = ajuz_text or ""
         # Generate candidates for Sadr (saturated and unsaturated)
         sadr_res_sat = self.converter.prepare_text(sadr_text, saturate=True)
         sadr_res_unsat = self.converter.prepare_text(sadr_text, saturate=False)
