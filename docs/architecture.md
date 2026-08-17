@@ -1,65 +1,73 @@
 # Technical Architecture
 
-PyArud is designed as a modular pipeline. It separates the linguistic processing (normalization, phonetics) from the mathematical analysis (pattern matching).
+PyArud is designed as a modular, layered pipeline. It separates pure Arabic orthography and phonetics from the mathematical prosodic meter scansion engine and rhyme analysis.
 
-## 1. The Pipeline
-
-Data flows through the system in three stages:
-
-1.  **Input**: Raw Arabic text (Unicode strings).
-2.  **Conversion (`ArudiConverter`)**: Transforms text into Arudi Phonetic representation and then into a binary string.
-3.  **Analysis (`ArudhProcessor`)**: Matches binary strings against precomputed meter patterns and performs detailed foot-by-foot analysis.
-
----
-
-## 2. Arudi Conversion (`arudi.py`)
-
-The `ArudiConverter` class is the linguistic engine. It does not know about meters; it only knows about phonetics.
-
-### Key Components
--   **Constants**: Uses `pyarabic.araby` constants (`FATHA`, `SUKUN`, etc.) for robustness.
--   **`CHANGE_LST`**: A dictionary of words with implicit letters (e.g., `هذا` $\rightarrow$ `هاذا`).
-    -   *Extensibility:* Users can add to this via `register_custom_spelling()`.
--   **Regex Engine**: Uses regular expressions to handle context-dependent rules:
-    -   **Iltiqa Sakinayn**: Dropping vowels before `Al-`.
-    -   **Solar Lam**: Assimilating `Al-` into solar letters.
--   **Tokenization**: The text is processed letter-by-letter (or token-by-token) to generate the binary string (`1` for Mutaharrik, `0` for Sakin).
+```mermaid
+graph TD
+    A[Raw Arabic Text] --> B[pyarud.core.arabic: Normalization & Tashkeel]
+    B --> C[pyarud.core.phonetics: Arudi Phonetic Transcription]
+    C --> D[Binary Pattern Extractor: 1=Mutaharrik, 0=Sakin]
+    D --> E[pyarud.meters.engine: Farahidi DP Grammar Matcher]
+    E --> F[pyarud.meters: 16 Buhur, Taf'ilat & Zihafat Evaluation]
+    C --> G[pyarud.qafiyah.analyzer: Rhyme & Rawi Extraction]
+    F --> H[pyarud.models.analysis: VerseAnalysis & PoemAnalysis Dataclasses]
+    G --> H
+    H --> I[pyarud.formatters.console: Pretty Console Reports]
+    H --> J[to_dict: JSON / Dict Serialization]
+```
 
 ---
 
-## 3. The Meter System (`bahr.py` & `tafeela.py`)
+## 1. Zero-Dependency Core (`pyarud.core`)
 
-PyArud uses a strict Object-Oriented model to define meters.
+The `pyarud.core` package handles all Arabic text processing without external libraries:
 
-### `Tafeela` Class
-Represents a single foot (e.g., `Mustafelon`).
--   Stores the standard binary pattern (`1010110`).
--   Defines `allowed_zehafs`: A list of Modification classes (e.g., `Khaban`) that can modify this specific foot.
--   **Generative**: The `all_zehaf_tafeela_forms()` method dynamically generates all valid permutations of the foot based on its allowed modifications.
-
-### `Bahr` Class
-Represents a poetic meter (e.g., `Kamel`).
--   **Composition**: Defined as a tuple of `Tafeela` classes (e.g., `(Mutafaelon, Mutafaelon, Mutafaelon)`).
--   **Arudh/Dharb Map**: A dictionary defining valid endings.
-    -   Example: `{NoZehafNorEllah: (NoZehafNorEllah, Hadhf)}`. This means "If the Arudh is healthy, the Dharb can be healthy or deleted."
--   **Pattern Generation**: The `detailed_patterns` property permutes all valid `Hashw` (interior) feet with all valid `Arudh/Dharb` endings to create a comprehensive set of valid line patterns.
+- **`arabic.py`**:
+  - `is_haraka`, `is_shadda`, `is_sukun`, `is_tanween`, `is_sun_letter`, `is_moon_letter`.
+  - Orthographic normalization (`normalize_orthography`, `strip_tashkeel`, `strip_tatweel`, `strip_punctuation`).
+- **`phonetics.py` (`ArudiConverter`)**:
+  - Pronominal Ha' saturation (إشباع هاء الغائب).
+  - Rhyme saturation (إشباع القافية).
+  - Implicit letter expansion (`CHANGE_LST`: هذا $\to$ هاذا, لكن $\to$ لاكن, etc.).
+  - Sun/Moon letter assimilation (`الـ` + شمسية).
+  - Hamzat Wasl deletion (`واستغفر` $\to$ `وَسْتَغْفَرَ`).
+  - Converts text to Arudi script and binary pattern (`1` for Mutaharrik, `0` for Sakin).
 
 ---
 
-## 4. The Processing Engine (`processor.py`)
+## 2. Deterministic Farahidi Engine (`pyarud.meters`)
 
-The `ArudhProcessor` binds everything together.
+The scansion engine uses Farahidi's dynamic programming grammar rules:
 
-### Algorithm: Cubic Similarity Scoring
-To distinguish between meters with similar patterns (e.g., a `Rajaz` line that looks like `Kamel` due to Zihaf), the processor uses a cubic scoring function:
-$$ Score = (RawRatio)^6 $$
-This penalizes small mismatches heavily, ensuring that only structurally sound matches rise to the top.
+- **`Tafeela` (`tafeela.py`)**:
+  - Models the 8 primary Taf'ilat (`فعولن`, `فاعلن`, `مفاعيلن`, `مستفعلن`, `متفاعلن`, `مفاعلتن`, `مفعولات`, `فاع لاتن`).
+  - Defines allowed Zihafat & Ilal per foot type.
+- **`Bahr` (`bahr.py`)**:
+  - Implements all 16 classical Buhur:
+    *الطويل, المديد, البسيط, الوافر, الكامل, الهزج, الرجز, الرمل, السريع, المنسرح, الخفيف, المضارع, المقتضب, المجتث, المتقارب, المتدارك*
+  - Models sub-variations: *Tam (تام), Majzoo (مجزوء), Mashtoor (مشطور), Manhook (منهوك), Mukhalla' (مخلع)*.
+- **`FarahidiEngine` (`engine.py`)**:
+  - Exact dynamic programming grammar parser.
+  - Matches binary sequences against valid meter foot sequences.
+  - Determines optimal foot boundaries, defect names, and confidence scores.
 
-### Algorithm: Greedy Foot Analysis
-Once a meter is detected, the processor performs a "Greedy Match" to segment the verse.
-1.  It looks at the binary stream.
-2.  It compares the beginning of the stream against all valid forms of the first foot.
-3.  It selects the longest valid match (to prefer `Mustaf'ilun` over `Mutaf'ilun` if both fit, though context matters).
-4.  It consumes that segment and moves to the next foot.
+---
 
-This approach allows PyArud to pinpoint exactly where a verse breaks, rather than just failing the whole line.
+## 3. Science of Rhyme (`pyarud.qafiyah`)
+
+- **`QafiyahAnalyzer`**:
+  - Extracts the exact classical Qafiyah boundary (from the last sukun to the preceding mutaharrik and sukun before it).
+  - Identifies the **Rawi (الروي)** and its vocalization (مطلقة / مقيدة / مضمومة / مفتوحة / مكسورة).
+  - Detects **Wasl (الوصل)**, **Khuruj (الخروج)**, **Ridf (الردف)**, **Tasees (التأسيس)**, and **Dakhil (الدخيل)**.
+  - Classifies rhyme rhythm into classical categories (*Al-Mutawatir, Al-Mutadarak, Al-Mutarakib, Al-Mutakawis, Al-Mutaradif*).
+
+---
+
+## 4. Models & Typed Data Flow (`pyarud.models`)
+
+PyArud is fully typed (PEP 561) using Python dataclasses:
+
+- **`VerseAnalysis`**: Contains Sadr & Ajuz analyses, overall meter, score, and Qafiyah analysis.
+- **`ShatrAnalysis`**: Contains Arudi text, binary pattern, foot analyses, and defect list.
+- **`FootAnalysis`**: Contains foot name, status (`ok` / `defective`), defect name, expected pattern, and segment.
+- **`PoemAnalysis`**: Aggregates multi-verse poems, majority meter vote, and average confidence.

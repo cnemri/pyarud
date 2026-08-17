@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-PyArud requires **Python 3.12** or newer.
+PyArud requires **Python 3.12** or newer and has **zero external runtime dependencies**.
 
 ## Standard Installation
 
@@ -12,48 +12,50 @@ You can install PyArud directly from PyPI using pip:
 pip install pyarud
 ```
 
+Or using `uv`:
+
+```bash
+uv add pyarud
+```
+
 ## Development Setup
 
-If you want to contribute to PyArud or run the tests locally, follow these steps.
-
-### Using standard venv
-
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/yourusername/pyarud.git
-    cd pyarud
-    ```
-
-2.  **Create a virtual environment:**
-    ```bash
-    python3.12 -m venv .venv
-    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-    ```
-
-3.  **Install in editable mode with dev dependencies:**
-    ```bash
-    pip install -e ".[dev,docs]"
-    ```
+If you want to contribute to PyArud, run benchmarks, or build documentation locally:
 
 ### Using uv (Recommended)
 
-If you use [uv](https://github.com/astral-sh/uv), it handles Python versions and virtual environments automatically.
+```bash
+git clone https://github.com/cnemri/pyarud.git
+cd pyarud
+
+# Install with development & documentation tools
+uv sync --extra dev --extra docs
+```
+
+### Using standard venv
 
 ```bash
-uv venv
-source .venv/bin/activate
-uv pip install -e ".[dev,docs]"
+git clone https://github.com/cnemri/pyarud.git
+cd pyarud
+
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+pip install -e ".[dev,docs]"
+```
+
+## Running Tests & Benchmarks
+
+To execute the test suite (including the 80-poem unseen benchmark):
+
+```bash
+pytest -v
 ```
 
 ## Verifying Installation
 
-To verify that PyArud is installed correctly, run this simple one-liner in your terminal:
+To verify that PyArud is working correctly:
 
 ```bash
-python -c "from pyarud.processor import ArudhProcessor; print(ArudhProcessor().process_poem([('أَخِي جَاوَزَ الظَّالِمُونَ الْمَدَى', '')])['meter'])"
-```
-
-It should output:
-```text
-mutakareb
+python -c "import pyarud; print(f'PyArud v{pyarud.__version__} installed successfully!')"
 ```

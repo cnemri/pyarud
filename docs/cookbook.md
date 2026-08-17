@@ -1,62 +1,99 @@
 # Cookbook: Common Recipes
 
-This section contains code snippets for common tasks.
+This section contains practical code snippets for common tasks with **PyArud v1.0.0**.
 
-## 1. Analyzing a Text File of Poems
+## 1. Analyzing a Poem File (Sadr | Ajuz)
 
-If you have a file `poems.txt` where each line is `Sadr | Ajuz`:
+If you have a file `poems.txt` where each line is formatted as `Sadr | Ajuz`:
 
 ```python
-from pyarud.processor import ArudhProcessor
+from pyarud import ArudhProcessor, format_poem_report
 
 processor = ArudhProcessor()
 verses = []
 
 with open("poems.txt", "r", encoding="utf-8") as f:
     for line in f:
+        line = line.strip()
         if "|" in line:
             parts = line.split("|")
             verses.append((parts[0].strip(), parts[1].strip()))
 
-result = processor.process_poem(verses)
-print(f"Detected Meter for file: {result['meter']}")
+analysis = processor.analyze_poem(verses)
+print(format_poem_report(analysis))
 ```
 
-## 2. Filtering by Meter
+---
 
-How to find only lines that match the "Wafir" meter from a list.
+## 2. Filtering Poems by Specific Meter
+
+To filter a large collection for a specific meter (e.g. Al-Wafer):
 
 ```python
-all_verses = [...] # Large list of verses
+from pyarud import ArudhProcessor
+
+processor = ArudhProcessor()
+all_verses = [
+    ("سَأَتْرُكُ حُبَّكم مِنْ غَيْرِ بُغْضٍ", "وَلَكِنْ كَثْرَةُ الشُّرَكَاءِ فِيهِ"),
+    ("إِذَا غَامَرْتَ فِي شَرَفٍ مَرُومِ", "فَلَا تَقْنَعْ بِمَا دُونَ النُّجُومِ"),
+]
+
 wafir_verses = []
+for sadr, ajuz in all_verses:
+    res = processor.analyze_verse(sadr, ajuz)
+    if res.meter_key == "wafer":
+        wafir_verses.append((sadr, ajuz))
 
-for s, a in all_verses:
-    res = processor.process_poem([(s, a)])
-    if res['meter'] == 'wafer':
-        wafir_verses.append((s, a))
+print(f"Found {len(wafir_verses)} Wafir verses.")
 ```
 
-## 3. Getting Raw Binary Patterns
+---
 
-Sometimes you just want the `10110` string for your own machine learning model or analysis.
+## 3. Extracting Rhyme and Rawi Details
 
 ```python
-from pyarud.arudi import ArudiConverter
+from pyarud.qafiyah import QafiyahAnalyzer
+
+analyzer = QafiyahAnalyzer()
+
+ajuz = "فَلَا تَقْنَعْ بِمَا دُونَ النُّجُومِ"
+q = analyzer.analyze(ajuz)
+
+print("Qafiyah Substring:", q.qafiyah_text)      # جُومِ
+print("Rawi Letter:", q.rawi)                   # م
+print("Rawi Movement:", q.rawi_movement)         # كسرة
+print("Rhyme Form:", q.rhyme_form)               # مكسورة (مطلقة)
+print("Rhyme Category:", q.rhyme_type)           # المتواتر
+```
+
+---
+
+## 4. Converting Text to Arudi Phonetics & Binary Patterns
+
+```python
+from pyarud import ArudiConverter
 
 converter = ArudiConverter()
-text = "مُسْتَفْعِلُنْ"
-_, pattern = converter.prepare_text(text)
-print(pattern) # 1010110
+text = "عَلَى قَدْرِ أَهْلِ العَزْمِ تَأْتِي العَزَائِمُ"
+
+arudi_text, pattern = converter.prepare_text(text)
+print("Arudi:", arudi_text)  # عَلَا قَدْرِ أَهْلِ لْعَزْمِ تَأْتِ لْعَزَائِمُو
+print("Pattern:", pattern)   # 11010110101011010110110
 ```
 
-## 4. Handling Single-Hemistich Lines (Mashtoor)
+---
 
-Some poems or educational texts only have one hemistich.
+## 5. Single-Hemistich Scansion (Mashtoor / Manhook)
+
+For poetic forms or educational exercises analyzing a single hemistich:
 
 ```python
-# Pass an empty string for the Ajuz
-result = processor.process_poem([("شَطْرٌ وَاحِدٌ فَقَطْ", "")])
+from pyarud import ArudhProcessor
 
-# The result will contain analysis for Sadr, and Ajuz will be None/Empty
-print(result['verses'][0]['ajuz_analysis']) # None
+processor = ArudhProcessor()
+shatr = "يَا دَارَ مَيَّةَ بِالعَلْيَاءِ فَالسَّنَدِ"
+
+res = processor.analyze_verse(shatr, "")
+print("Meter:", res.meter_name_ar)
+print("Sadr Arudi:", res.sadr.arudi_text)
 ```

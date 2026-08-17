@@ -1,77 +1,97 @@
 # Quick Start
 
-This guide will get you analyzing Arabic poetry in under 5 minutes.
+This guide will get you analyzing Arabic poetry with **PyArud v1.0.0** in under 5 minutes.
 
-## 1. Basic Analysis
+## 1. Single Verse Analysis
 
-The primary entry point is the `ArudhProcessor`.
+The most direct way to analyze a verse is with `analyze_verse()`:
 
 ```python
-from pyarud.processor import ArudhProcessor
+from pyarud import ArudhProcessor, format_verse_report
 
-# 1. Initialize
 processor = ArudhProcessor()
 
-# 2. Define your verse (Sadr, Ajuz)
-verse = ("أَخِي جَاوَزَ الظَّالِمُونَ الْمَدَى", "فَحَقَّ الْجِهَادُ وَحَقَّ الْفِدَا")
+sadr = "إِذَا غَامَرْتَ فِي شَرَفٍ مَرُومِ"
+ajuz = "فَلَا تَقْنَعْ بِمَا دُونَ النُّجُومِ"
 
-# 3. Process
-# The input must be a list of tuples
-result = processor.process_poem([verse])
+# Returns a strongly-typed VerseAnalysis object
+verse_analysis = processor.analyze_verse(sadr, ajuz)
 
-# 4. Print Result
-print(f"Meter: {result['meter']}")
+# Print a rich formatted report
+print(format_verse_report(verse_analysis))
 ```
 
-## 2. Interpreting the Result
+### Direct Attribute Access
 
-The `result` is a rich dictionary containing detailed information about every foot in the verse.
+You can access all prosodic and rhyme properties directly:
 
 ```python
-{
-  "meter": "mutakareb",
-  "verses": [
-    {
-      "verse_index": 0,
-      "score": 1.0,
-      "sadr_analysis": [
-        {
-           "foot_index": 0,
-           "status": "ok",
-           "expected_pattern": "11010",
-           "actual_segment": "11010",
-           "score": 1.0
-        },
-        # ... more feet
-      ],
-      "ajuz_analysis": [...]
-    }
-  ]
-}
+print("Bahr Key:", verse_analysis.meter_key)          # 'taweel'
+print("Bahr Arabic:", verse_analysis.meter_name_ar)   # 'الطويل'
+print("Accuracy Score:", verse_analysis.score)        # 1.0
+
+# Sadr details
+print("Sadr Arudi Text:", verse_analysis.sadr.arudi_text)
+print("Sadr Pattern:", verse_analysis.sadr.pattern)
+for foot in verse_analysis.sadr.feet:
+    print(f"  Foot: {foot.foot_name} | Status: {foot.status} | Defect: {foot.defect_name}")
+
+# Qafiyah & Rhyme details
+q = verse_analysis.qafiyah
+print(f"Rawi: {q.rawi} ({q.rhyme_form})")
+print(f"Rhyme Pattern: {q.pattern} ({q.rhyme_type})")
 ```
 
-## 3. Batch Processing
+---
 
-You can analyze an entire poem at once. The processor will determine the global meter based on the majority of verses.
+## 2. Multi-Verse Poem Analysis
+
+To analyze an entire poem, use `analyze_poem()`:
 
 ```python
+from pyarud import ArudhProcessor, format_poem_report
+
+processor = ArudhProcessor()
+
 poem = [
-    ("أَخِي جَاوَزَ الظَّالِمُونَ الْمَدَى", "فَحَقَّ الْجِهَادُ وَحَقَّ الْفِدَا"),
-    ("عَلَامَ التَّعَلُّلُ بِالْآمَالِ", "وَمَا زِلْتُ فِي غَفْلَةٍ رَاقِدَا"),  # Intentionally different/broken for demo
+    ("إِذَا غَامَرْتَ فِي شَرَفٍ مَرُومِ", "فَلَا تَقْنَعْ بِمَا دُونَ النُّجُومِ"),
+    ("فَطَعْمُ المَوْتِ فِي أَمْرٍ حَقِيرٍ", "كَطَعْمِ المَوْتِ فِي أَمْرٍ عَظِيمِ"),
+    ("يَرَى الجُبَنَاءُ أَنَّ العَجْزَ عَقْلٌ", "وَتِلْكَ خَدِيعَةُ الطَّبْعِ اللَّئِيمِ"),
 ]
 
-result = processor.process_poem(poem)
+poem_analysis = processor.analyze_poem(poem)
+print(format_poem_report(poem_analysis))
 
-print(f"Global Meter: {result['meter']}")
-for v in result['verses']:
-    print(f"Verse {v['verse_index'] + 1} Score: {v['score']}")
+print("Dominant Meter:", poem_analysis.meter_name_ar)
+print("Average Score:", poem_analysis.average_score)
+print(f"Total Verses: {len(poem_analysis.verses)}")
 ```
 
-## 4. Handling Input Text
+---
 
-PyArud works best with **fully diacritized text (Shakl)**.
+## 3. Extracting Phonetic & Binary Patterns
 
-- **With Diacritics**: `كَتَبَ` -> Detected as `111` (Mutaharrik, Mutaharrik, Mutaharrik).
-- **Without Diacritics**: `كتب` -> PyArud has to guess or treat letters as Mutaharrik by default, which may lead to inaccurate results.
+If you only need phonetic transcription or binary prosodic patterns (`1` = Mutaharrik, `0` = Sakin):
 
-**Tip:** If you are building an app, consider using a Tashkeel (diacritization) library like `mishkal` or `tashaphyne` before passing text to PyArud.
+```python
+from pyarud import ArudiConverter
+
+converter = ArudiConverter()
+
+arudi_text, pattern = converter.prepare_text("مُسْتَفْعِلُنْ مَفْعُولَاتُ")
+print("Arudi Text:", arudi_text)  # مُسْتَفْعِلُنْ مَفْعُولَاتُ
+print("Binary Pattern:", pattern) # 1010110101010
+```
+
+---
+
+## 4. Dictionary Serialization (Legacy & JSON Support)
+
+If you need a plain Python `dict` or JSON-serializable object:
+
+```python
+# Convert any analysis to dict
+data = verse_analysis.to_dict()
+# Or use legacy process_poem
+legacy_dict = processor.process_poem([("سَأَتْرُكُ حُبَّكم مِنْ غَيْرِ بُغْضٍ", "وَلَكِنْ كَثْرَةُ الشُّرَكَاءِ فِيهِ")])
+```
